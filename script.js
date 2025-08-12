@@ -16,7 +16,7 @@ let blocks = [];
 
 let powerUp = null;
 let powerUpTimer = 0;
-let nextPowerUpSpawn = randomRange(15000, 30000); // 15-30 seconds
+let nextPowerUpSpawn = randomRange(5000, 15000); // 5-15 seconds
 let powerUpActive = false;
 let powerUpDuration = 5000; // 5 seconds
 let powerUpEndTime = 0;
@@ -43,15 +43,40 @@ function spawnBlock() {
 }
 
 function spawnPowerUp() {
-  const size = 30;
+  console.log('Power-up spawned!');
+  const size = 50;
   const x = randomRange(0, canvas.width - size);
   const y = canvas.height - size - 10; // 10 px above bottom edge
   powerUp = { x, y, w: size, h: size, speed: 0, color: '#4ade80', spawnTime: performance.now() };
+  playBeep();
+}
+
+function playBeep() {
+  try {
+    const audioCtx = new AudioContext();
+    const oscillator = audioCtx.createOscillator();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
+    oscillator.connect(audioCtx.destination);
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.15);
+  } catch {
+    // ignore if not supported
+  }
 }
 
 function drawRect(obj) {
   ctx.fillStyle = obj.color;
   ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+}
+
+function drawPowerUp(obj, time) {
+  const pulse = 0.5 + 0.5 * Math.sin(time / 200);
+  ctx.shadowColor = `rgba(74, 222, 128, ${pulse})`;
+  ctx.shadowBlur = 20 * pulse;
+  ctx.fillStyle = obj.color;
+  ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+  ctx.shadowBlur = 0;
 }
 
 function update(time = 0) {
@@ -100,7 +125,7 @@ function update(time = 0) {
   if (!powerUp && powerUpTimer > nextPowerUpSpawn) {
     spawnPowerUp();
     powerUpTimer = 0;
-    nextPowerUpSpawn = randomRange(15000, 30000);
+    nextPowerUpSpawn = randomRange(5000, 15000);
   }
 
   // Power-up despawn logic after 5 seconds if not collected
@@ -131,11 +156,11 @@ function update(time = 0) {
   else if (keys.right && !keys.left) player.dx = player.speed;
   else player.dx = 0;
 
-  draw();
+  draw(time);
   requestAnimationFrame(update);
 }
 
-function draw() {
+function draw(time = 0) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   // Draw player
@@ -144,8 +169,8 @@ function draw() {
   // Draw blocks
   blocks.forEach(drawRect);
 
-  // Draw power-up
-  if (powerUp) drawRect(powerUp);
+  // Draw power-up with glow if present
+  if (powerUp) drawPowerUp(powerUp, time);
 
   // Draw UI
   ctx.fillStyle = 'white';
