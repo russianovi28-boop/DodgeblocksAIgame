@@ -1,208 +1,194 @@
-(() => {
-  const menu = document.getElementById('menu');
-  const startBtn = document.getElementById('start-btn');
-  const musicBtn = document.getElementById('music-btn');
-  const gameContainer = document.getElementById('game-container');
-  const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d');
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
 
-  const scoreEl = document.getElementById('score');
-  const pauseBtn = document.getElementById('pause-btn');
-  const restartBtn = document.getElementById('restart-btn');
-  const gameOverEl = document.getElementById('game-over');
-  const gameoverRestartBtn = document.getElementById('gameover-restart-btn');
+canvas.width = window.innerWidth * 0.9;
+canvas.height = window.innerHeight * 0.8;
 
-  const bgMusic = document.getElementById('bg-music');
-  bgMusic.volume = 0.25;
+let keys = {};
+let gameOver = false;
+let paused = false;
 
-  let musicOn = true;
-  let paused = false;
-  let gameOver = false;
+let lastTime = 0;
+let spawnTimer = 0;
+let spawnInterval = 600; // spawn interval (ms), faster from start
+let blockSpeed = 8;      // block falling speed from start
+let blocks = [];
 
-  function resizeCanvas() {
-    canvas.width = gameContainer.clientWidth;
-    canvas.height = gameContainer.clientHeight;
-  }
+let powerUp = null;
+let powerUpTimer = 0;
+let nextPowerUpSpawn = randomRange(15000, 30000); // 15-30 seconds
+let powerUpActive = false;
+let powerUpDuration = 5000; // 5 seconds
+let powerUpEndTime = 0;
 
-  window.addEventListener('resize', () => {
-    if (gameContainer.style.display !== 'none') {
-      resizeCanvas();
-      resetPlayer();
-    }
-  });
+const player = {
+  w: 50,
+  h: 50,
+  x: canvas.width / 2 - 25,
+  y: canvas.height - 60,
+  speed: 5,
+  baseSpeed: 5,
+  dx: 0,
+  color: '#f6d365',
+};
 
-  const player = {
-    w: 50,
-    h: 50,
-    x: 0,
-    y: 0,
-    speed: 7,
-    dx: 0,
-    color: '#f6d365',
-  };
+function randomRange(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
 
-  let blocks = [];
-  const blockW = 50;
-  const blockH = 50;
-  let blockSpeed = 4;
-  let spawnTimer = 0;
-  let spawnInterval = 1000;
+function spawnBlock() {
+  const size = randomRange(20, 50);
+  const x = randomRange(0, canvas.width - size);
+  blocks.push({ x, y: -size, w: size, h: size, speed: blockSpeed, color: '#fc4a1a' });
+}
 
-  let score = 0;
-  const keys = { left: false, right: false };
+function spawnPowerUp() {
+  const size = 30;
+  const x = randomRange(0, canvas.width - size);
+  powerUp = { x, y: -size, w: size, h: size, speed: 4, color: '#4ade80' };
+}
 
-  function resetPlayer() {
-    player.x = (canvas.width - player.w) / 2;
-    player.y = canvas.height - player.h - 20;
-    player.dx = 0;
-    player.speed = 7;
-  }
+function drawRect(obj) {
+  ctx.fillStyle = obj.color;
+  ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+}
 
-  function resetGame() {
-    resetPlayer();
-    blocks = [];
-    blockSpeed = 4;
-    spawnInterval = 1000;
+function update(time = 0) {
+  if (paused || gameOver) return;
+  const delta = time - lastTime;
+  lastTime = time;
+
+  // Move player
+  player.x += player.dx;
+  if (player.x < 0) player.x = 0;
+  if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
+
+  // Spawn blocks multiple times quickly (hard from start)
+  spawnTimer += delta;
+  if (spawnTimer > spawnInterval) {
+    for (let i = 0; i < 3; i++) spawnBlock();
     spawnTimer = 0;
-    score = 0;
-    gameOver = false;
-    paused = false;
-    updateScore();
-    gameOverEl.style.display = 'none';
-    pauseBtn.textContent = 'Pause';
-    requestAnimationFrame(gameLoop);
+
+    // Slightly increase difficulty over time
+    if (spawnInterval > 300) spawnInterval -= 10;
+    if (blockSpeed < 15) blockSpeed += 0.2;
+    if (player.speed > 3) player.speed -= 0.01;
   }
 
-  function updateScore() {
-    scoreEl.textContent = `Score: ${score}`;
-  }
+  // Update blocks
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const b = blocks[i];
+    b.y += b.speed;
 
-  function spawnBlock() {
-    const x = Math.random() * (canvas.width - blockW);
-    blocks.push({ x, y: -blockH, w: blockW, h: blockH, color: `hsl(${Math.random() * 360}, 70%, 70%)` });
-  }
+    // Remove blocks that fall out
+    if (b.y > canvas.height) blocks.splice(i, 1);
 
-  function colliding(a, b) {
-    return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-  }
-
-  let lastTime = 0;
-  function update(time = 0) {
-    if (paused || gameOver) return;
-
-    const delta = time - lastTime;
-    lastTime = time;
-
-    player.x += player.dx;
-    if (player.x < 0) player.x = 0;
-    if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
-
-    spawnTimer += delta;
-    if (spawnTimer > spawnInterval) {
-      const maxBlocks = Math.min(1 + Math.floor((1000 - spawnInterval) / 200), 4);
-      for (let i = 0; i < maxBlocks; i++) spawnBlock();
-
-      spawnTimer = 0;
-      if (spawnInterval > 300) spawnInterval -= 15;
-      if (blockSpeed < 12) blockSpeed += 0.2;
-      if (player.speed > 3) player.speed -= 0.03;
-      if (keys.left && !keys.right) player.dx = -player.speed;
-      if (keys.right && !keys.left) player.dx = player.speed;
-    }
-
-    for (let i = blocks.length - 1; i >= 0; i--) {
-      blocks[i].y += blockSpeed;
-      if (blocks[i].y > canvas.height) {
-        blocks.splice(i, 1);
-        score++;
-        updateScore();
-        continue;
-      }
-      if (colliding(player, blocks[i])) {
-        gameOver = true;
-        gameOverEl.style.display = 'block';
-        break;
-      }
+    // Check collision with player -> game over
+    if (
+      b.x < player.x + player.w &&
+      b.x + b.w > player.x &&
+      b.y < player.y + player.h &&
+      b.h + b.y > player.y
+    ) {
+      gameOver = true;
     }
   }
 
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    ctx.fillStyle = player.color;
-    ctx.shadowColor = 'rgba(246,211,101,0.9)';
-    ctx.shadowBlur = 20;
-    ctx.fillRect(player.x, player.y, player.w, player.h);
-    ctx.shadowBlur = 0;
-
-    blocks.forEach(b => {
-      ctx.fillStyle = b.color;
-      ctx.shadowColor = b.color;
-      ctx.shadowBlur = 15;
-      ctx.fillRect(b.x, b.y, b.w, b.h);
-      ctx.shadowBlur = 0;
-    });
+  // Power-up spawn timer
+  powerUpTimer += delta;
+  if (!powerUp && powerUpTimer > nextPowerUpSpawn) {
+    spawnPowerUp();
+    powerUpTimer = 0;
+    nextPowerUpSpawn = randomRange(15000, 30000);
   }
 
-  function gameLoop(time = 0) {
-    if (gameOver || paused) {
-      draw();
-      return;
+  // Update power-up position
+  if (powerUp) {
+    powerUp.y += powerUp.speed;
+
+    // Remove power-up if it falls off screen
+    if (powerUp.y > canvas.height) {
+      powerUp = null;
     }
-    update(time);
-    draw();
-    requestAnimationFrame(gameLoop);
+
+    // Check collision with player -> activate power-up
+    if (
+      powerUp.x < player.x + player.w &&
+      powerUp.x + powerUp.w > player.x &&
+      powerUp.y < player.y + player.h &&
+      powerUp.h + powerUp.y > player.y
+    ) {
+      powerUp = null;
+      powerUpActive = true;
+      powerUpEndTime = time + powerUpDuration;
+      player.speed = player.baseSpeed * 1.5;
+    }
   }
 
-  window.addEventListener('keydown', e => {
-    if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
-      keys.left = true;
-      player.dx = -player.speed;
-    }
-    if (e.code === 'ArrowRight' || e.code === 'KeyD') {
-      keys.right = true;
-      player.dx = player.speed;
-    }
-  });
-  window.addEventListener('keyup', e => {
-    if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
-      keys.left = false;
-      if (!keys.right) player.dx = 0;
-      else player.dx = player.speed;
-    }
-    if (e.code === 'ArrowRight' || e.code === 'KeyD') {
-      keys.right = false;
-      if (!keys.left) player.dx = 0;
-      else player.dx = -player.speed;
-    }
-  });
+  // Check if power-up duration ended
+  if (powerUpActive && time > powerUpEndTime) {
+    powerUpActive = false;
+    player.speed = player.baseSpeed;
+  }
 
-  pauseBtn.addEventListener('click', () => {
-    if (gameOver) return;
-    paused = !paused;
-    pauseBtn.textContent = paused ? 'Resume' : 'Pause';
-    if (!paused) requestAnimationFrame(gameLoop);
-  });
+  // Set player horizontal speed based on keys
+  if (keys.left && !keys.right) player.dx = -player.speed;
+  else if (keys.right && !keys.left) player.dx = player.speed;
+  else player.dx = 0;
 
-  restartBtn.addEventListener('click', resetGame);
-  gameoverRestartBtn.addEventListener('click', resetGame);
+  draw();
+  requestAnimationFrame(update);
+}
 
-  startBtn.addEventListener('click', () => {
-    menu.style.display = 'none';
-    gameContainer.style.display = 'block';
-    resizeCanvas();
-    resetGame();
-    if (musicOn) bgMusic.play();
-  });
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  musicBtn.addEventListener('click', () => {
-    musicOn = !musicOn;
-    if (musicOn) {
-      bgMusic.play();
-      musicBtn.textContent = 'Music: On';
-    } else {
-      bgMusic.pause();
-      musicBtn.textContent = 'Music: Off';
-    }
-  });
-})();
+  // Draw player
+  drawRect(player);
+
+  // Draw blocks
+  blocks.forEach(drawRect);
+
+  // Draw power-up
+  if (powerUp) drawRect(powerUp);
+
+  // Draw UI
+  ctx.fillStyle = 'white';
+  ctx.font = '20px Arial';
+  ctx.fillText(`Game ${gameOver ? 'Over!' : powerUpActive ? 'Speed Boost Active!' : ''}`, 10, 30);
+  if (gameOver) {
+    ctx.fillText('Press R to Restart', 10, 60);
+  }
+}
+
+function restartGame() {
+  blocks = [];
+  gameOver = false;
+  spawnTimer = 0;
+  spawnInterval = 600;
+  blockSpeed = 8;
+  player.speed = player.baseSpeed;
+  player.x = canvas.width / 2 - player.w / 2;
+  powerUp = null;
+  powerUpTimer = 0;
+  powerUpActive = false;
+  lastTime = 0;
+  update();
+}
+
+window.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if (e.key.toLowerCase() === 'r' && gameOver) restartGame();
+  if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = true;
+  if (e.key === 'ArrowRight' || e.key === 'd') keys.right = true;
+});
+
+window.addEventListener('keyup', e => {
+  keys[e.key] = false;
+  if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = false;
+  if (e.key === 'ArrowRight' || e.key === 'd') keys.right = false;
+});
+
+// Start game
+restartGame();
+
