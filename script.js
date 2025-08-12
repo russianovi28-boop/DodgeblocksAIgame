@@ -45,7 +45,8 @@ function spawnBlock() {
 function spawnPowerUp() {
   const size = 30;
   const x = randomRange(0, canvas.width - size);
-  powerUp = { x, y: -size, w: size, h: size, speed: 4, color: '#4ade80' };
+  const y = canvas.height - size - 10; // 10 px above bottom edge
+  powerUp = { x, y, w: size, h: size, speed: 0, color: '#4ade80', spawnTime: performance.now() };
 }
 
 function drawRect(obj) {
@@ -102,27 +103,21 @@ function update(time = 0) {
     nextPowerUpSpawn = randomRange(15000, 30000);
   }
 
-  // Update power-up position
-  if (powerUp) {
-    powerUp.y += powerUp.speed;
+  // Power-up despawn logic after 5 seconds if not collected
+  if (powerUp && (time - powerUp.spawnTime > 5000)) {
+    powerUp = null;
+  }
 
-    // Remove power-up if it falls off screen
-    if (powerUp.y > canvas.height) {
-      powerUp = null;
-    }
-
-    // Check collision with player -> activate power-up
-    if (
+  // Check collision with player -> activate power-up
+  if (powerUp &&
       powerUp.x < player.x + player.w &&
       powerUp.x + powerUp.w > player.x &&
       powerUp.y < player.y + player.h &&
-      powerUp.h + powerUp.y > player.y
-    ) {
-      powerUp = null;
-      powerUpActive = true;
-      powerUpEndTime = time + powerUpDuration;
-      player.speed = player.baseSpeed * 1.5;
-    }
+      powerUp.h + powerUp.y > player.y) {
+    powerUp = null;
+    powerUpActive = true;
+    powerUpEndTime = time + powerUpDuration;
+    player.speed = player.baseSpeed * 1.5;
   }
 
   // Check if power-up duration ended
@@ -191,4 +186,3 @@ window.addEventListener('keyup', e => {
 
 // Start game
 restartGame();
-
