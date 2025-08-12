@@ -65,7 +65,6 @@ function drawPowerUp(obj, time) {
 }
 
 function update(time = 0) {
-  // Update timers even if paused or gameOver
   const delta = time - lastTime;
   lastTime = time;
 
@@ -73,12 +72,10 @@ function update(time = 0) {
   powerUpTimer += delta;
 
   if (!paused && !gameOver) {
-    // Move player
     player.x += player.dx;
     if (player.x < 0) player.x = 0;
     if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
 
-    // Spawn blocks multiple times quickly (hard start)
     if (spawnTimer > spawnInterval) {
       for (let i = 0; i < 3; i++) spawnBlock();
       spawnTimer = 0;
@@ -88,7 +85,6 @@ function update(time = 0) {
       if (player.speed > 3) player.speed -= 0.01;
     }
 
-    // Update blocks position and collision
     for (let i = blocks.length - 1; i >= 0; i--) {
       const b = blocks[i];
       b.y += b.speed;
@@ -105,20 +101,17 @@ function update(time = 0) {
       }
     }
 
-    // Power-up spawn
     if (!powerUp && powerUpTimer > nextPowerUpSpawn) {
       spawnPowerUp();
       powerUpTimer = 0;
       nextPowerUpSpawn = randomRange(5000, 15000);
     }
 
-    // Power-up despawn after 5 seconds
     if (powerUp && (time - powerUp.spawnTime > 5000)) {
       console.log("Power-up despawned");
       powerUp = null;
     }
 
-    // Power-up collision
     if (
       powerUp &&
       powerUp.x < player.x + player.w &&
@@ -133,7 +126,6 @@ function update(time = 0) {
       console.log("Power-up collected! Speed boosted.");
     }
 
-    // Power-up effect timeout
     if (powerUpActive && time > powerUpEndTime) {
       powerUpActive = false;
       player.speed = player.baseSpeed;
@@ -141,7 +133,6 @@ function update(time = 0) {
     }
   }
 
-  // Update player dx based on keys
   if (keys.left && !keys.right) player.dx = -player.speed;
   else if (keys.right && !keys.left) player.dx = player.speed;
   else player.dx = 0;
@@ -177,6 +168,9 @@ function restartGame() {
   powerUpTimer = 0;
   powerUpActive = false;
   lastTime = 0;
+
+  spawnPowerUp(); // spawn immediately
+
   update();
 }
 
@@ -193,5 +187,4 @@ window.addEventListener('keyup', e => {
   if (e.key === 'ArrowRight' || e.key === 'd') keys.right = false;
 });
 
-// Start game
 restartGame();
