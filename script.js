@@ -6,20 +6,8 @@ canvas.height = window.innerHeight * 0.8;
 
 let keys = {};
 let gameOver = false;
-let paused = false;
 
 let lastTime = 0;
-let spawnTimer = 0;
-let spawnInterval = 600; // ms between block spawns
-let blockSpeed = 8;
-let blocks = [];
-
-let powerUp = null;
-let powerUpTimer = 0;
-let nextPowerUpSpawn = randomRange(5000, 15000);
-let powerUpActive = false;
-let powerUpDuration = 5000;
-let powerUpEndTime = 0;
 
 const player = {
   w: 50,
@@ -31,6 +19,18 @@ const player = {
   dx: 0,
   color: '#f6d365',
 };
+
+let blocks = [];
+let spawnTimer = 0;
+let spawnInterval = 600;
+let blockSpeed = 8;
+
+let powerUp = null;
+let powerUpTimer = 0;
+let nextPowerUpSpawn = randomRange(5000, 15000);
+let powerUpActive = false;
+let powerUpDuration = 5000;
+let powerUpEndTime = 0;
 
 function randomRange(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -46,7 +46,7 @@ function spawnPowerUp() {
   const size = 50;
   const x = randomRange(0, canvas.width - size);
   const y = canvas.height - size - 10;
-  powerUp = { x, y, w: size, h: size, speed: 0, color: '#4ade80', spawnTime: performance.now() };
+  powerUp = { x, y, w: size, h: size, color: '#4ade80', spawnTime: performance.now() };
   console.log("Power-up spawned at", x, y);
 }
 
@@ -71,7 +71,7 @@ function update(time = 0) {
   spawnTimer += delta;
   powerUpTimer += delta;
 
-  if (!paused && !gameOver) {
+  if (!gameOver) {
     player.x += player.dx;
     if (player.x < 0) player.x = 0;
     if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
@@ -79,10 +79,6 @@ function update(time = 0) {
     if (spawnTimer > spawnInterval) {
       for (let i = 0; i < 3; i++) spawnBlock();
       spawnTimer = 0;
-
-      if (spawnInterval > 300) spawnInterval -= 10;
-      if (blockSpeed < 15) blockSpeed += 0.2;
-      if (player.speed > 3) player.speed -= 0.01;
     }
 
     for (let i = blocks.length - 1; i >= 0; i--) {
@@ -146,7 +142,10 @@ function draw(time = 0) {
 
   drawRect(player);
   blocks.forEach(drawRect);
-  if (powerUp) drawPowerUp(powerUp, time);
+  if (powerUp) {
+    console.log('Drawing power-up');
+    drawPowerUp(powerUp, time);
+  }
 
   ctx.fillStyle = 'white';
   ctx.font = '20px Arial';
@@ -157,6 +156,7 @@ function draw(time = 0) {
 }
 
 function restartGame() {
+  console.log('Game restarted');
   blocks = [];
   gameOver = false;
   spawnTimer = 0;
@@ -169,7 +169,7 @@ function restartGame() {
   powerUpActive = false;
   lastTime = 0;
 
-  spawnPowerUp(); // spawn immediately
+  spawnPowerUp();
 
   update();
 }
